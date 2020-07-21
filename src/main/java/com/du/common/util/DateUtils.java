@@ -1,6 +1,7 @@
 package com.du.common.util;
 
 import com.du.common.constant.DateConstant;
+import com.google.common.collect.Sets;
 
 import java.sql.Timestamp;
 import java.text.DateFormat;
@@ -515,6 +516,388 @@ public class DateUtils {
 		LocalDate startLocalDate = LocalDate.parse(startDate, DateTimeFormatter.ofPattern(pattern));
 		LocalDate endLocalDate = LocalDate.parse(endDate, DateTimeFormatter.ofPattern(pattern));
 		return endLocalDate.isAfter(startLocalDate) || endLocalDate.isEqual(startLocalDate);
+	}
+
+
+	/**
+	 * 获取ZoneId对象
+	 *
+	 * @param zoneId 时区ID
+	 * @return ZoneId
+	 */
+	public static ZoneId getZoneId(String zoneId) {
+		ZoneId zone = null;
+		if (org.apache.commons.lang3.StringUtils.isNotBlank(zoneId)) {
+			zone = ZoneId.of(zoneId);
+		} else {
+			zone = ZoneId.systemDefault();
+		}
+		return zone;
+	}
+
+	/**
+	 * 获取时间戳/秒
+	 *
+	 * @param zoneId 时区id
+	 * @return Long
+	 */
+	public static Long getTimeStampSecond(String zoneId) {
+		if (org.apache.commons.lang3.StringUtils.isBlank(zoneId)) {
+			return LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().getEpochSecond();
+		}
+		return LocalDateTime.now().atZone(ZoneId.of(zoneId)).toInstant().getEpochSecond();
+	}
+
+	/**
+	 * 获取时间戳/毫秒
+	 *
+	 * @param zoneId 时区id
+	 * @return Long
+	 */
+	public static Long getTimeStampMilli(String zoneId) {
+		if (org.apache.commons.lang3.StringUtils.isBlank(zoneId)) {
+			return LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+		}
+		return LocalDateTime.now().atZone(ZoneId.of(zoneId)).toInstant().toEpochMilli();
+	}
+
+	/**
+	 * 获取日期时间
+	 *
+	 * @param pattern String（格式）
+	 * @return String
+	 */
+	public static String getDateTime(String zoneId, String pattern) {
+		ZonedDateTime zonedDateTime = null;
+		if (org.apache.commons.lang3.StringUtils.isBlank(zoneId)) {
+			zonedDateTime = LocalDateTime.now().atZone(ZoneId.systemDefault());
+		} else {
+			zonedDateTime = LocalDateTime.now().atZone(ZoneId.of(zoneId));
+		}
+		if (org.apache.commons.lang3.StringUtils.isEmpty(pattern)) {
+			zonedDateTime.toString();
+		}
+		return zonedDateTime.format(DateTimeFormatter.ofPattern(pattern));
+	}
+
+	/**
+	 * 获取当前时间的Timestamp对象
+	 *
+	 * @param zoneId 时区id
+	 * @return Timestamp
+	 */
+	public static Timestamp getCurrentTimeStamp(String zoneId) {
+		return new Timestamp(getTimeStampMilli(zoneId));
+	}
+
+	/**
+	 * 将时间戳转换为某个时区的时间字符串
+	 *
+	 * @param timestamp
+	 * @param zoneId
+	 * @param pattern
+	 * @return
+	 */
+	public static String convertTimestampToString(long timestamp, String zoneId, String pattern) {
+		ZoneOffset zoneOffset = null;
+		DateTimeFormatter df = DateTimeFormatter.ofPattern(pattern);
+		if (org.apache.commons.lang3.StringUtils.isBlank(zoneId)) {
+			zoneOffset = ZoneOffset.ofHours(TimeZone.getTimeZone(zoneId).getRawOffset() / 3600000);
+		} else {
+			zoneOffset = ZoneOffset.ofHours(8);
+		}
+		LocalDateTime localDateTime = LocalDateTime.ofEpochSecond(timestamp / 1000, 0, zoneOffset);
+		return localDateTime.format(df);
+	}
+
+	/**
+	 * 将datetime格式转换为时间戳
+	 *
+	 * @param datetime
+	 * @param zoneId
+	 * @return
+	 */
+	public static long convertDatetimeToTimestamp(String datetime, String zoneId) {
+		ZoneOffset zoneOffset = null;
+		if (org.apache.commons.lang3.StringUtils.isBlank(zoneId)) {
+			zoneOffset = ZoneOffset.ofHours(TimeZone.getTimeZone(zoneId).getRawOffset() / 3600000);
+		} else {
+			zoneOffset = ZoneOffset.ofHours(8);
+		}
+		LocalDateTime localDateTime = LocalDateTime.parse(datetime, DateTimeFormatter.ofPattern(DateConstant.DATETIME_PATTERN));
+		return localDateTime.toInstant(zoneOffset).toEpochMilli();
+	}
+
+	/**
+	 * 获取某个时段第一个时间戳
+	 *
+	 * @param datetime
+	 * @param zoneId
+	 * @param pattern
+	 * @return
+	 */
+	public static long getFirstTimestamp(String datetime, String zoneId, String pattern) {
+		String suffix = "";
+		switch (pattern) {
+			case DateConstant.HOUR_PATTERN:
+				suffix = ":00:00";
+				break;
+			case DateConstant.DAY_PATTERN:
+				suffix = " 00:00:00";
+				break;
+			case DateConstant.MONTH_PATTERN:
+				suffix = "-01 00:00:00";
+				break;
+			case DateConstant.YEAR_PATTERN:
+				suffix = "-01-01 00:00:00";
+				break;
+		}
+		//获取时区偏移
+		ZoneOffset zoneOffset = ZoneOffset.ofHours(TimeZone.getTimeZone(zoneId).getRawOffset() / 3600000);
+		DateTimeFormatter df = DateTimeFormatter.ofPattern(DateConstant.DATETIME_PATTERN);
+		LocalDateTime result = LocalDateTime.parse(datetime + suffix, df);
+		return result.toInstant(zoneOffset).toEpochMilli();
+	}
+
+	/**
+	 * 获取上一个小时的最大时间戳
+	 *
+	 * @param zoneId 时区ID
+	 * @return Long
+	 */
+	public static Long getMaxTimeStampMilliOfPreviousHour(String zoneId) {
+		ZoneId zone = getZoneId(zoneId);
+		// 当前时间
+		ZonedDateTime zonedDateTime = LocalDateTime.now().atZone(zone);
+		// 上一个小时
+		ZonedDateTime preHourZonedDateTime = zonedDateTime.minusHours(1);
+		// 格式化yyyy-MM-dd HH
+		String hour = preHourZonedDateTime.format(DateTimeFormatter.ofPattern(DateConstant.HOUR_PATTERN));
+		// 字符串时间转化为LocalDateTime
+		LocalDateTime localDataTime = LocalDateTime.parse(hour + DateConstant.HOUR_MAX, DateTimeFormatter.ofPattern(DateConstant.MILLI_PATTERN));
+
+		return localDataTime.atZone(zone).toInstant().toEpochMilli();
+	}
+
+	/**
+	 * 获取前n天的最大时间戳
+	 *
+	 * @param zoneId 时区ID
+	 * @param preDay 前n天
+	 * @return Long
+	 */
+	public static Long getMaxTimeStampMilliOfPreviousDay(String zoneId, Integer preDay) {
+		ZoneId zone = getZoneId(zoneId);
+		// 当前时间
+		ZonedDateTime zonedDateTime = LocalDateTime.now().atZone(zone);
+		// 前n天的时间
+		ZonedDateTime preDayZonedDateTime = zonedDateTime.minusDays(preDay);
+		ZonedDateTime maxZonedDateTime = preDayZonedDateTime.with(LocalTime.MAX);
+		return maxZonedDateTime.toInstant().toEpochMilli();
+	}
+
+	/**
+	 * 获取前几个月的最后一天的最大时间戳
+	 *
+	 * @param zoneId   时区ID
+	 * @param preMonth 前N月
+	 * @return Long
+	 */
+	public static Long getMaxTimeStampMilliOfLastDayPreviousMonth(String zoneId, Integer preMonth) {
+		ZoneId zone = getZoneId(zoneId);
+		// 当前时间
+		ZonedDateTime zonedDateTime = LocalDateTime.now().atZone(zone);
+		if (null != preMonth) {
+			ZonedDateTime preMonthZonedDateTime = zonedDateTime.minusMonths(preMonth);
+			zonedDateTime = preMonthZonedDateTime.with(TemporalAdjusters.lastDayOfMonth());
+		}
+		// 格式化yyyy-MM-dd HH
+		String hour = zonedDateTime.format(DateTimeFormatter.ofPattern(DateConstant.DAY_PATTERN));
+		// 字符串时间转化为LocalDateTime
+		LocalDateTime localDataTime = LocalDateTime.parse(hour + DateConstant.DAY_MAX, DateTimeFormatter.ofPattern(DateConstant.MILLI_PATTERN));
+
+		return localDataTime.atZone(zone).toInstant().toEpochMilli();
+	}
+
+	/**
+	 * 字符串时间转化为Long时间
+	 *
+	 * @param timeStr 字符串时间
+	 * @param pattern 格式
+	 * @param zoneId  时区ID
+	 * @return Long
+	 */
+	public static long stringTimeToLongTime(String timeStr, String pattern, String zoneId) {
+		if (org.apache.commons.lang3.StringUtils.isBlank(timeStr) || org.apache.commons.lang3.StringUtils.isBlank(pattern)) {
+			throw new NullPointerException("timeStr and pattern must not be null");
+		}
+		ZoneId zone = getZoneId(zoneId);
+		DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(pattern);
+		LocalDateTime localDateTime = LocalDateTime.parse(timeStr, dateTimeFormatter);
+		return localDateTime.atZone(zone).toInstant().toEpochMilli();
+	}
+
+	/**
+	 * 获取分钟的整点时间
+	 *
+	 * @param minute 分钟
+	 * @param zoneId 时区Id
+	 * @return long
+	 */
+	public static long getFullTimeOfMinute(int minute, String zoneId) {
+		if (0 >= minute) {
+			throw new IllegalArgumentException("minute must bu greater than zero");
+		}
+		ZoneId zone = getZoneId(zoneId);
+		LocalDateTime now = LocalDateTime.now();
+		LocalDateTime minuteLocalDateTime = now.withMinute(now.getMinute() / minute * minute);
+		// 将秒，毫秒都设置为0
+		LocalDateTime minusMinuteLocalDateTime = minuteLocalDateTime.minusMinutes(minute).withSecond(0).withNano(0);
+		return minusMinuteLocalDateTime.atZone(zone).toInstant().toEpochMilli();
+	}
+
+
+	/**
+	 * long类型时间转化为LocalDateTime
+	 *
+	 * @param millis 时间戳
+	 * @param zoneId 时区ID
+	 * @return LocalDateTime
+	 */
+	public static LocalDateTime longTimeToLocalDateTime(Long millis, String zoneId) {
+		ZoneId zone = getZoneId(zoneId);
+		return LocalDateTime.ofInstant(Instant.ofEpochMilli(millis), zone);
+	}
+
+	/**
+	 * LocalDateTime转化为字符串
+	 *
+	 * @param localDateTime LocalDateTime
+	 * @param zoneId        时区ID
+	 * @param pattern       格式
+	 * @return String
+	 */
+	public static String localDateTimeToString(LocalDateTime localDateTime, String zoneId, String pattern) {
+		ZoneId zone = getZoneId(zoneId);
+		return localDateTime.atZone(zone).format(DateTimeFormatter.ofPattern(pattern));
+	}
+
+	/**
+	 * 获取两个时间间隔的小时列表
+	 *
+	 * @param startMillis 开始时间戳
+	 * @param endMillis   结束时间戳
+	 * @param zoneId      时区ID
+	 * @param pattern     格式
+	 * @return List<String>
+	 */
+	public static Set<String> getIntervalHourList(Long startMillis, Long endMillis, String zoneId, String pattern) {
+		if (Objects.isNull(startMillis) || Objects.isNull(endMillis) || org.apache.commons.lang3.StringUtils.isBlank(pattern)) {
+			throw new NullPointerException("startMillis or  endMillis or pattern is null");
+		}
+		if (startMillis > endMillis) {
+			throw new IllegalArgumentException("the endMillis must be greater than the startMillis");
+		}
+		Set<String> hourSet = Sets.newHashSet();
+		LocalDateTime startLocalDateTime = longTimeToLocalDateTime(startMillis, zoneId);
+		LocalDateTime endLocalDateTime = longTimeToLocalDateTime(endMillis, zoneId);
+		while (startLocalDateTime.isBefore(endLocalDateTime)) {
+			String localDateTimeStr = localDateTimeToString(startLocalDateTime, zoneId, pattern);
+			hourSet.add(localDateTimeStr);
+			startLocalDateTime = startLocalDateTime.plusHours(1);
+		}
+		String localDateTimeStr = localDateTimeToString(endLocalDateTime, zoneId, pattern);
+		hourSet.add(localDateTimeStr);
+		return hourSet;
+	}
+
+	/**
+	 * 获取两个时间间隔的天数列表
+	 *
+	 * @param startMillis 开始时间戳
+	 * @param endMillis   结束时间戳
+	 * @param zoneId      时区ID
+	 * @param pattern     格式
+	 * @return List<String>
+	 */
+	public static Set<String> getIntervalDayList(Long startMillis, Long endMillis, String zoneId, String pattern) {
+		if (Objects.isNull(startMillis) || Objects.isNull(endMillis) || org.apache.commons.lang3.StringUtils.isBlank(pattern)) {
+			throw new NullPointerException("startMillis or  endMillis or pattern is null");
+		}
+		if (startMillis > endMillis) {
+			throw new IllegalArgumentException("the endMillis must be greater than the startMillis");
+		}
+		Set<String> daySet = Sets.newHashSet();
+		LocalDateTime startLocalDateTime = longTimeToLocalDateTime(startMillis, zoneId);
+		LocalDateTime endLocalDateTime = longTimeToLocalDateTime(endMillis, zoneId);
+		while (startLocalDateTime.isBefore(endLocalDateTime) || startLocalDateTime.isEqual(endLocalDateTime)) {
+			String localDateTimeStr = localDateTimeToString(startLocalDateTime, zoneId, pattern);
+			daySet.add(localDateTimeStr);
+			startLocalDateTime = startLocalDateTime.plusDays(1);
+		}
+		String localDateTimeStr = localDateTimeToString(endLocalDateTime, zoneId, pattern);
+		daySet.add(localDateTimeStr);
+		return daySet;
+	}
+
+	/**
+	 * 获取两个时间间隔的月份列表
+	 *
+	 * @param startMillis 开始时间戳
+	 * @param endMillis   结束时间戳
+	 * @param zoneId      时区ID
+	 * @param pattern     格式
+	 * @return List<String>
+	 */
+	public static Set<String> getInternalMonthList(Long startMillis, Long endMillis, String zoneId, String pattern) {
+		if (Objects.isNull(startMillis) || Objects.isNull(endMillis) || org.apache.commons.lang3.StringUtils.isBlank(pattern)) {
+			throw new NullPointerException("startMillis or  endMillis or pattern is null");
+		}
+		if (startMillis > endMillis) {
+			throw new IllegalArgumentException("the endMillis must be greater than the startMillis");
+		}
+		Set<String> monthSet = Sets.newHashSet();
+		LocalDateTime startLocalDateTime = longTimeToLocalDateTime(startMillis, zoneId);
+		LocalDateTime endLocalDateTime = longTimeToLocalDateTime(endMillis, zoneId);
+		while (startLocalDateTime.isBefore(endLocalDateTime) || startLocalDateTime.isEqual(endLocalDateTime)) {
+			String localDateTimeStr = localDateTimeToString(startLocalDateTime, zoneId, pattern);
+			monthSet.add(localDateTimeStr);
+			startLocalDateTime = startLocalDateTime.plusMonths(1);
+		}
+		// 添加最有一个月
+		String localDateTimeStr = localDateTimeToString(endLocalDateTime, zoneId, pattern);
+		monthSet.add(localDateTimeStr);
+		return monthSet;
+	}
+
+	/**
+	 * 获取一个月中最小的时间戳
+	 *
+	 * @param strDate 日期
+	 * @param pattern 格式
+	 * @param zoneId  时区ID
+	 * @return long
+	 */
+	public static long getMinMillisOfMonth(String strDate, String pattern, String zoneId) {
+		ZoneId zone = getZoneId(zoneId);
+		LocalDate localDate = LocalDate.parse(strDate, DateTimeFormatter.ofPattern(pattern));
+		LocalDate firstLocalDate = localDate.with(TemporalAdjusters.firstDayOfMonth());
+		return LocalDateTime.of(firstLocalDate, LocalTime.MIN).atZone(zone).toInstant().toEpochMilli();
+	}
+
+	/**
+	 * 获取一个月中最大的时间戳
+	 *
+	 * @param strDate 日期
+	 * @param pattern 格式
+	 * @param zoneId  时区ID
+	 * @return long
+	 */
+	public static long getMaxMillisOfMonth(String strDate, String pattern, String zoneId) {
+		ZoneId zone = getZoneId(zoneId);
+		LocalDate localDate = LocalDate.parse(strDate, DateTimeFormatter.ofPattern(pattern));
+		LocalDate firstLocalDate = localDate.with(TemporalAdjusters.lastDayOfMonth());
+		return LocalDateTime.of(firstLocalDate, LocalTime.MAX).atZone(zone).toInstant().toEpochMilli();
 	}
 
 
